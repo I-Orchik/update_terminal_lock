@@ -10,14 +10,23 @@ import os
 intervalAlert=7
 intervalBlock=7
 
-def getcouch(layer):
+def getcouch(layer, server):
+	SERVER_LIST={
+	'Juggernaut':'77.95.132.135'
+	'Neo':''
+
+	}
+
+
 	cdbname = os.popen("ssh root@192.168.201.101 \"su - postgres -c './scripts/get_cdb.sh batman'\"").read().strip('\n')
 	print(cdbname)
+
+def select_server(server):
 
 
 janitor_connect = psycopg2.connect("dbname='janitordb' user='janitordb' host='localhost' password='janitordb'")
 cur = janitor_connect.cursor()
-cur.execute("select name, layer, tostoptime from customer where franchiser_id is null")
+cur.execute("select c.name, c.layer, c.tostoptime, ds.name from customer c left join databaseserver ds on ds.id=c.database_id where c.franchiser_id is null and c.database_id not in (1,3)")
 res=cur.fetchall()
 
 layer = res[1]
