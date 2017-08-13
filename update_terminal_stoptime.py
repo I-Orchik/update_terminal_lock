@@ -12,20 +12,21 @@ intervalBlock=7
 
 def getcouch(layer, server):
 	SERVER_LIST={
-	'Juggernaut':'77.95.132.135'
-	'Neo':''
-
+	'2':'77.95.132.135',
+	'9':'77.95.132.134',
+	'10':'192.168.201.101', 
+	'12':'192.168.202.101',
+	'13':'192.168.202.102',
+	'14':'192.168.202.103'
 	}
-
-
-	cdbname = os.popen("ssh root@192.168.201.101 \"su - postgres -c './scripts/get_cdb.sh batman'\"").read().strip('\n')
-	print(cdbname)
-
-def select_server(server):
+	if server in (10, 12, 13, 14):
+		cdbname = os.popen("./get_cdb_name.sh \"{0}\" \"{1}\"".format(layer, SERVER_LIST[str(server)])).read().strip("\n")
+	return cdbname
 
 
 janitor_connect = psycopg2.connect("dbname='janitordb' user='janitordb' host='localhost' password='janitordb'")
 cur = janitor_connect.cursor()
+# select name, layer, tostoptime, database_id from customer where franchiser_id is null and database_id not in (1,3)
 cur.execute("select c.name, c.layer, c.tostoptime, ds.name from customer c left join databaseserver ds on ds.id=c.database_id where c.franchiser_id is null and c.database_id not in (1,3)")
 res=cur.fetchall()
 
@@ -37,7 +38,7 @@ layerStopTime = datetime.strftime(layer[2], "%Y-%m-%dT%H:%M:%SZ")
 layerStopAlertTime = datetime.strftime(layer[2] - timedelta(days=intervalAlert), "%Y-%m-%dT%H:%M:%SZ")
 terminalLockTime = datetime.strftime(layer[2] + timedelta(days=intervalBlock), "%Y-%m-%dT%H:%M:%SZ")
 print (name, sys_name, layerStopAlertTime, layerStopTime, terminalLockTime)
-getcouch("batman")
+print (getcouch("batman", 10))
 
 	#with SSHTunnelForwarder((REMOTE_HOST),
 	#	ssh_username='root',
