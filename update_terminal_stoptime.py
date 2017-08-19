@@ -8,6 +8,7 @@ import os
 intervalAlert=7
 intervalBlock=7
 
+
 def getcouch(layer, server):
 	SERVER_LIST={
 	'2':'77.95.132.135',
@@ -20,53 +21,51 @@ def getcouch(layer, server):
 	}
 	if server in (10, 12, 13, 14):
 		cdbname = os.popen("./get_cdb_name.sh \"{0}\" \"{1}\"".format(layer, SERVER_LIST[str(server)])).read().strip("\n")
+	if server == 15:
+		cdbname = 'startup_baton38'
 	return cdbname
 
-def get_device_info(couchname):
-	server = couchdb.Server('http://admin:admin@localhost:5984')
-	db=server[couchname]
-	res = db.iterview("_all_docs", 1, startkey='device_info', endkey='device_info', include_docs=True)
-	for row in res:
-        return row.id
+
+def get_device_info_doc(couch):
+	docs = couch.iterview("_all_docs", 1, startkey='device_info', endkey='device_info{', include_docs=True)
+	for row in docs:
+		return row.id
+
+
+def generate_update_doc(doc, layerStopTime, layerStopAlertTime, terminalLockTime):
+	oldLayerStopTime = doc.get('layerStopTime')
+	oldLayerStopAlertTime = doc.get('layerStopAlertTime')
+	oldTerminalLockTime = doc.get('terminalLockTime')
+	if (layerStopTime!=oldLayerStopTime) or (oldLayerStopAlertTime!=layerStopAlertTime) or (oldTerminalLockTime!=terminalLockTime):
+		doc['layerStopTime'] = layerStopTime
+		doc['layerStopAlertTime'] = layerStopAlertTime
+		doc['terminalLockTime'] = terminalLockTime
+		return doc
+	return None
+
 
 janitor_connect = psycopg2.connect("dbname='janitordb' user='janitordb' host='localhost' password='janitordb'")
 cur = janitor_connect.cursor()
-cur.execute("select name, layer, tostoptime, database_id from customer where franchiser_id is null and database_id not in (1,3)")
+#cur.execute("select name, layer, tostoptime, database_id from customer where franchiser_id is null and database_id not in (1,3)")
+cur.execute("select name, layer, tostoptime, database_id from customer where name='baton38'")
+
 res=cur.fetchall()
-
-layer = res[1]
+layer = res[0]
 #for layer in res:
-name = layer[0]
-sys_name = layer[1]
-layerStopTime = datetime.strftime(layer[2], "%Y-%m-%dT%H:%M:%SZ")
-layerStopAlertTime = datetime.strftime(layer[2] - timedelta(days=intervalAlert), "%Y-%m-%dT%H:%M:%SZ")
-terminalLockTime = datetime.strftime(layer[2] + timedelta(days=intervalBlock), "%Y-%m-%dT%H:%M:%SZ")
-print (name, sys_name, layerStopAlertTime, layerStopTime, terminalLockTime)
-print (getcouch("baton38", 15))
-
-
-	#with SSHTunnelForwarder((REMOTE_HOST),
-	#	ssh_username='root',
-	#	remote_bind_address=('localhost', PORT),
-	#   local_bind_address=('localhost', PORT)):
-	#	print("try connect to database...")
-	#	dbconn = psycopg2.connect("dbname='dbbatman' user='dbbatman' host='localhost' port=5432 password='dbbatman'")
-	#	dbcurs = dbconn.cursor()
-	#	dbcurs.execute("select name from couchdb")
-	#	cdbname=dbcurs.fetchall()[0]
-	#	print(cdbname)
-	#	PORT=5432
-	#REMOTE_HOST="192.168.201.101"
-	#REMOTE_SSH_PORT=22
-	#print("try connect to remote server...")
-	#t = paramiko.Transport((REMOTE_HOST, 22))
-	#print("Transport opened.")
-	#t.connect(username="root")
-	#print("Connected") 
-	#c = paramiko.Channel(t)
-	#print("Channel opened.")
-	#dbconn = psycopg2.connect("dbname='dbbatman' user='dbbatman' host='192.168.202.101' port=5432 password='dbbatman'")
-	#curs = conn.cursor()
-	#dbcurs = dbconn.cursor()
-	#dbcurs.execute("select name from couchdb")
-	#cdbname=dbcurs.fetchall()
+if 1:
+	name = layer[0]
+	sys_name = layer[1]
+	layerStopTime = datetime.strftime(layer[2], "%Y-%m-%dT%H:%M:%SZ")
+	layerStopAlertTime = datetime.strftime(layer[2] - timedelta(days=intervalAlert), "%Y-%m-%dT%H:%M:%SZ")
+	terminalLockTime = datetime.strftime(layer[2] + timedelta(days=intervalBlock), "%Y-%m-%dT%H:%M:%SZ")
+	couchname = getcouch("baton38", 15)
+	server = couchdb.Server('http://admin:admin@localhost:5984')
+	db = server[couchname]
+	device_info_id = get_device_info_doc(db)
+	new_doc = generate_update_doc(db[device_info_id], layerStopTime, layerStopAlertTime, terminalLockTime)
+	if new_doc is not None:
+		db[device_info_id] = new_doc
+		print "Doc {0} updated".format(device_info_id)
+	else:
+		print "Doc not updated"
+	print "Check cdb"
